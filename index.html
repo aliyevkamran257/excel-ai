@@ -23,6 +23,23 @@
     td { padding: 8px 12px; border: 1px solid #e0e0e0; }
     tr:hover td { background: #fafafa; }
     #file-name { font-size: 13px; color: #555; margin-top: 8px; }
+    #analyze-btn {
+      display: none; margin-top: 20px;
+      background: #2563eb; color: white;
+      border: none; padding: 12px 28px;
+      border-radius: 8px; font-size: 15px;
+      cursor: pointer; width: 100%;
+    }
+    #analyze-btn:hover { background: #1d4ed8; }
+    #analyze-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+    #result {
+      margin-top: 24px; padding: 20px;
+      background: #f0f9ff; border-radius: 12px;
+      border: 1px solid #bae6fd;
+      font-size: 14px; line-height: 1.8;
+      white-space: pre-wrap; display: none;
+    }
+    #result h3 { margin-top: 0; color: #0369a1; }
   </style>
 </head>
 <body>
@@ -38,11 +55,25 @@
   <div id="file-name"></div>
   <div id="preview"></div>
 
+  <button id="analyze-btn" onclick="analyzeData()">
+    🤖 AI ilə Xətaları Analiz Et
+  </button>
+
+  <div id="result">
+    <h3>🔍 AI Analiz Nəticəsi</h3>
+    <div id="result-text"></div>
+  </div>
+
   <script>
     const fileInput = document.getElementById('file-input');
     const dropZone = document.getElementById('drop-zone');
     const preview = document.getElementById('preview');
     const fileName = document.getElementById('file-name');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const result = document.getElementById('result');
+    const resultText = document.getElementById('result-text');
+
+    let tableData = '';
 
     fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
 
@@ -63,7 +94,10 @@
         const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        tableData = rows.map(r => r.join('\t')).join('\n');
         showTable(rows.slice(0, 51));
+        analyzeBtn.style.display = 'block';
+        result.style.display = 'none';
       };
       reader.readAsArrayBuffer(file);
     }
@@ -80,6 +114,29 @@
       });
       html += '</tbody></table>';
       preview.innerHTML = html;
+    }
+
+    async function analyzeData() {
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = '⏳ Analiz edilir...';
+      result.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: tableData })
+        });
+        const json = await response.json();
+        resultText.textContent = json.answer;
+        result.style.display = 'block';
+      } catch (err) {
+        resultText.textContent = 'Xəta baş verdi: ' + err.message;
+        result.style.display = 'block';
+      }
+
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = '🤖 AI ilə Xətaları Analiz Et';
     }
   </script>
 </body>
